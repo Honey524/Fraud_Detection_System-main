@@ -1,0 +1,50 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: fraud-detection-ingress
+  namespace: fraud-detection
+  labels:
+    app: fraud-detection
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - fraud-detection.local
+      secretName: fraud-detection-tls
+  rules:
+    - host: fraud-detection.local
+      http:
+        paths:
+          - path: /api/ml
+            pathType: Prefix
+            backend:
+              service:
+                name: fraud-ml-service
+                port:
+                  number: 5000
+          - path: /api/alerts
+            pathType: Prefix
+            backend:
+              service:
+                name: fraud-alert-service
+                port:
+                  number: 5001
+          - path: /ui
+            pathType: Prefix
+            backend:
+              service:
+                name: fraud-web-ui
+                port:
+                  number: 8000
+          - path: /producer
+            pathType: Prefix
+            backend:
+              service:
+                name: fraud-producer
+                port:
+                  number: 8080

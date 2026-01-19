@@ -1,0 +1,65 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fraud-web-ui
+  namespace: default
+  labels:
+    app: fraud-web-ui
+    tier: frontend
+spec:
+  type: NodePort
+  selector:
+    app: fraud-web-ui
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
+      nodePort: 31800
+      protocol: TCP
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fraud-ml-service
+  namespace: default
+  labels:
+    app: fraud-ml-service
+    tier: ml
+spec:
+  type: ClusterIP
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 10800
+  selector:
+    app: fraud-ml-service
+  ports:
+    - name: http
+      port: 5000
+      targetPort: 5000
+      protocol: TCP
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fraud-alert-service
+  namespace: default
+  labels:
+    app: fraud-alert-service
+    tier: alerts
+spec:
+  type: ClusterIP
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 10800
+  selector:
+    app: fraud-alert-service
+  ports:
+    - name: http
+      port: 5001
+      targetPort: 5001
+      protocol: TCP

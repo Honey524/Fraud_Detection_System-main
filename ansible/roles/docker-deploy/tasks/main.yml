@@ -1,0 +1,145 @@
+# Deploy services using Docker Compose
+# REASON: Orchestrates all 7 microservices (Producer, Kafka, Zookeeper, ML Service, 
+#         Alert Service, Web UI, Spark) with proper networking and dependencies
+
+---
+- name: Check if docker-compose.yml exists
+  stat:
+    path: "{{ docker_compose_file }}"
+  register: compose_file
+  tags: docker-deploy
+
+- name: Fail if docker-compose.yml is missing
+  fail:
+    msg: "docker-compose.yml not found at {{ docker_compose_file }}"
+  when: not compose_file.stat.exists
+  tags: docker-deploy
+
+- name: Check Docker daemon is running
+  systemd:
+    name: docker
+    state: started
+  tags: docker-deploy
+
+- name: Create project directory
+  file:
+    path: "{{ project_root }}"
+    state: directory
+    mode: '0755'
+  tags: docker-deploy
+
+- name: Create logs directory
+  file:
+    path: "{{ logs_path }}"
+    state: directory
+    mode: '0755'
+  tags: docker-deploy
+
+- name: Create volumes directory
+  file:
+    path: "{{ volumes_path }}"
+    state: directory
+    mode: '0755'
+  tags: docker-deploy
+
+- name: Copy project files to remote
+  synchronize:
+    src: "{{ playbook_dir }}/../../"
+    dest: "{{ project_root }}/"
+    archive: yes
+    delete: no
+    rsync_opts:
+      - "--exclude=.git"
+      - "--exclude=__pycache__"
+      - "--exclude=.pytest_cache"
+      - "--exclude=.env"
+  tags: docker-deploy
+  become: no
+  when: inventory_hostname != "localhost"
+
+- name: Validate docker-compose file
+  command: docker compose -f "{{ docker_compose_file }}" config
+  register: compose_validate
+  tags: docker-deploy
+
+- name: Build Docker images
+  command: docker compose -f "{{ docker_compose_file }}" build
+  args:
+    chdir: "{{ project_root }}"
+  tags: docker-deploy
+  register: build_result
+  async: 3600
+  poll: 10
+
+- name: Pull latest images
+  command: docker compose -f "{{ docker_compose_file }}" pull
+  args:
+    chdir: "{{ project_root }}"
+  tags: docker-deploy
+  ignore_errors: yes
+
+- name: Start services with Docker Compose
+  command: docker compose -f "{{ docker_compose_file }}" up -d --remove-orphans
+  args:
+    chdir: "{{ project_root }}"
+  tags: docker-deploy
+  register: compose_up
+  retries: 3
+  delay: 10
+  until: compose_up.rc == 0
+
+- name: Wait for services to be ready
+  pause:
+    seconds: 10
+  tags: docker-deploy
+
+- name: Check Docker Compose service status
+  command: docker compose -f "{{ docker_compose_file }}" ps
+  args:
+    chdir: "{{ project_root }}"
+  tags: docker-deploy
+  register: compose_status
+
+- name: Show Docker Compose services
+  debug:
+    msg: "{{ compose_status.stdout }}"
+  tags: docker-deploy
+
+- name: Test ML Service health
+  uri:
+    url: "http://localhost:{{ app_ports.ml_service }}/health"
+    method: GET
+    status_code: 200
+  retries: 5
+  delay: 5
+  register: ml_health
+  tags: docker-deploy
+
+- name: Test Alert Service health
+  uri:
+    url: "http://localhost:{{ app_ports.alert_service }}/health"
+    method: GET
+    status_code: 200
+  retries: 5
+  delay: 5
+  register: alert_health
+  tags: docker-deploy
+
+- name: Test Web UI health
+  uri:
+    url: "http://localhost:{{ app_ports.web_ui }}/"
+    method: GET
+    status_code: 200
+  retries: 5
+  delay: 5
+  register: web_health
+  tags: docker-deploy
+
+- name: Show deployment status
+  debug:
+    msg: |
+      Docker Compose Deployment Complete!
+      ML Service Health: {{ ml_health.status }}
+      Alert Service Health: {{ alert_health.status }}
+      Web UI Health: {{ web_health.status }}
+  tags: docker-deploy

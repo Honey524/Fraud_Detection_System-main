@@ -1,0 +1,88 @@
+# Install Kubernetes tools (kubectl, kubeadm, kubelet)
+# REASON: Kubernetes provides advanced container orchestration with:
+#         - Automatic scaling
+#         - Self-healing
+#         - Rolling updates
+#         - Built-in monitoring and logging
+
+---
+- name: Update package manager
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+  tags: k8s-install
+
+- name: Install Kubernetes dependencies
+  apt:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - apt-transport-https
+    - curl
+    - gnupg
+  tags: k8s-install
+
+- name: Download Kubernetes GPG key
+  apt_key:
+    url: https://pkgs.k8s.io/core:/stable:/v1.31/deb/Release.key
+    keyring: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+    state: present
+  tags: k8s-install
+  when: ansible_os_family == "Debian"
+
+- name: Add Kubernetes repository
+  apt_repository:
+    repo: "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.31/deb/ /"
+    state: present
+  tags: k8s-install
+  when: ansible_os_family == "Debian"
+
+- name: Install kubectl
+  apt:
+    name: "kubectl={{ kubeadm_version }}-*"
+    state: present
+  tags: k8s-install
+
+- name: Install kubeadm
+  apt:
+    name: "kubeadm={{ kubeadm_version }}-*"
+    state: present
+  tags: k8s-install
+
+- name: Install kubelet
+  apt:
+    name: "kubelet={{ kubelet_version }}-*"
+    state: present
+  tags: k8s-install
+
+- name: Install minikube (for local development)
+  command: |
+    curl -LO https://github.com/kubernetes/minikube/releases/download/v{{ k8s_version }}/minikube-linux-amd64
+    install minikube-linux-amd64 /usr/local/bin/minikube
+  args:
+    creates: /usr/local/bin/minikube
+  tags: k8s-install
+  when: inventory_hostname == "localhost"
+
+- name: Verify kubectl installation
+  command: kubectl version --client
+  register: kubectl_version_check
+  tags: k8s-install
+
+- name: Show kubectl version
+  debug:
+    msg: "{{ kubectl_version_check.stdout }}"
+  tags: k8s-install
+
+- name: Create .kube directory
+  file:
+    path: "{{ ansible_user_dir }}/.kube"
+    state: directory
+    mode: '0755'
+  tags: k8s-install
+
+- name: Set kubectl context (if kubeconfig exists)
+  command: kubectl config view
+  register: kubectl_config
+  ignore_errors: yes
+  tags: k8s-install

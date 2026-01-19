@@ -1,0 +1,101 @@
+# Backup and Disaster Recovery Playbook
+# REASON: Ensures data protection and recovery capability
+# Prevents: Data loss, ransomware impact, corruption issues
+
+---
+- name: Backup and Disaster Recovery
+  hosts: all
+  become: yes
+  
+  vars:
+    backup_base_dir: "{{ backup_volume_path }}"
+    backup_date: "{{ ansible_date_time.iso8601_basic_short }}"
+    backup_archive: "fraud-detection-backup-{{ backup_date }}.tar.gz"
+
+  tasks:
+    - name: Create backup directory
+      file:
+        path: "{{ backup_base_dir }}"
+        state: directory
+        mode: '0755'
+      tags: backup
+
+    - name: Stop services for consistent backup
+      command: docker compose -f "{{ docker_compose_file }}" down
+      args:
+        chdir: "{{ project_root }}"
+      ignore_errors: yes
+      tags: backup
+
+    - name: Backup project files
+      archive:
+        path: "{{ project_root }}"
+        dest: "{{ backup_base_dir }}/{{ backup_archive }}"
+        format: gz
+        mode: '0644'
+      tags: backup
+
+    - name: Backup Docker volumes
+      shell: |
+        for volume in $(docker volume ls --format '{{ .Name }}' | grep fraud); do
+          docker run --rm -v $volume:/data -v {{ backup_base_dir }}:/backup \
+            alpine tar czf /backup/volume-$volume-{{ backup_date }}.tar.gz -C /data .
+        done
+      tags: backup
+      ignore_errors: yes
+
+    - name: Backup Kubernetes persistent volumes
+      command: |
+        kubectl get pvc -n {{ k8s_namespace }} -o json | \
+        jq '.items[] | "\(.metadata.name)"' | tr -d '"' | \
+        xargs -I {} kubectl exec -n {{ k8s_namespace }} \
+        $(kubectl get pods -n {{ k8s_namespace }} -l app={} -o jsonpath='{.items[0].metadata.name}') \
+        -- tar czf /data/backup-{{ backup_date }}.tar.gz /app/data
+      tags: backup
+      ignore_errors: yes
+
+    - name: Restart services after backup
+      command: docker compose -f "{{ docker_compose_file }}" up -d
+      args:
+        chdir: "{{ project_root }}"
+      ignore_errors: yes
+      tags: backup
+
+    - name: Clean old backups (keep last 30 days)
+      shell: |
+        find {{ backup_base_dir }} -name "*.tar.gz" -mtime +{{ backup_retention_days }} -delete
+      tags: backup
+
+    - name: Generate backup report
+      debug:
+        msg: |
+          ╔════════════════════════════════════════════════════════════╗
+          ║              Backup Complete                               ║
+          ╚════════════════════════════════════════════════════════════╝
+          
+          Backup Location: {{ backup_base_dir }}
+          Archive: {{ backup_archive }}
+          Timestamp: {{ ansible_date_time.iso8601 }}
+          
+          Backup Contents:
+          • Project files: {{ project_root }}
+          • Docker volumes: All fraud-detection volumes
+          • Kubernetes PVCs: All persistent volumes
+          
+          Retention Policy: Keep {{ backup_retention_days }} days
+          
+          To restore from backup:
+          tar xzf {{ backup_base_dir }}/{{ backup_archive }} -C /
+          
+          Next scheduled backup: {{ backup_schedule }}
+      tags: backup
+
+    - name: List recent backups
+      shell: "ls -lh {{ backup_base_dir }}/*.tar.gz | tail -5"
+      register: recent_backups
+      tags: backup
+
+    - name: Show recent backups
+      debug:
+        msg: "{{ recent_backups.stdout_lines }}"
+      tags: backup

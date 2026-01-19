@@ -1,0 +1,40 @@
+# Docker Deployment Playbook
+# REASON: Deploys Fraud Detection System using Docker Compose
+# Ideal for: Single servers, development, quick deployments
+
+---
+- name: Deploy Fraud Detection System with Docker Compose
+  hosts: docker_hosts
+  become: yes
+  
+  roles:
+    - role: docker-install
+      tags: docker-install
+      
+    - role: docker-deploy
+      tags: docker-deploy
+
+  post_tasks:
+    - name: Display deployment summary
+      debug:
+        msg: |
+          ╔════════════════════════════════════════════════════════════╗
+          ║       Docker Compose Deployment Complete!                 ║
+          ╚════════════════════════════════════════════════════════════╝
+          
+          Deployed Services:
+          • ML Service:        http://{{ ansible_host | default('localhost') }}:{{ app_ports.ml_service }}/health
+          • Alert Service:     http://{{ ansible_host | default('localhost') }}:{{ app_ports.alert_service }}/health
+          • Web UI:            http://{{ ansible_host | default('localhost') }}:{{ app_ports.web_ui }}
+          • Kafka Broker:      {{ ansible_host | default('localhost') }}:{{ app_ports.kafka }}
+          • Spark Master:      http://{{ ansible_host | default('localhost') }}:7077
+          
+          Common Commands:
+          • View logs:         docker compose -f {{ docker_compose_file }} logs -f
+          • Stop services:     docker compose -f {{ docker_compose_file }} down
+          • Check status:      docker compose -f {{ docker_compose_file }} ps
+          • Restart service:   docker compose -f {{ docker_compose_file }} restart <service_name>
+          
+          Next: Run health checks with:
+          ansible-playbook playbooks/health-check.yml
+      tags: docker-deploy

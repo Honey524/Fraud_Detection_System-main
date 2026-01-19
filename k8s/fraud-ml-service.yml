@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fraud-ml-service
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: fraud-ml-service
+  template:
+    metadata:
+      labels:
+        app: fraud-ml-service
+    spec:
+      containers:
+      - name: fraud-ml-service
+        image: fraud-ml-service:latest
+        imagePullPolicy: Never
+        resources:
+          requests:
+            cpu: 200m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        ports:
+        - containerPort: 5000

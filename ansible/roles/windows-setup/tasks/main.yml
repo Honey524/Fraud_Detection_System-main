@@ -1,0 +1,145 @@
+---
+# Role: windows-setup
+# Description: Installs required software on Windows hosts for fraud detection system
+
+- name: Verify Windows OS
+  assert:
+    that:
+      - ansible_os_family == 'Windows'
+    fail_msg: "This role is designed for Windows systems only"
+
+- name: Install Chocolatey package manager
+  block:
+    - name: Download Chocolatey installer
+      win_get_url:
+        url: https://community.chocolatey.org/install.ps1
+        dest: '%TEMP%\install.ps1'
+      register: choco_download
+
+    - name: Install Chocolatey
+      win_shell: |
+        Set-ExecutionPolicy Bypass -Scope Process -Force
+        & '%TEMP%\install.ps1'
+      environment:
+        CHOCOLATEYINSTALL: 'C:\ProgramData\chocolatey'
+      register: choco_install
+      changed_when: '"Chocolatey installed" in choco_install.stdout'
+
+- name: Install Docker Desktop via Chocolatey
+  win_chocolatey:
+    name: docker-desktop
+    state: present
+  register: docker_install
+  retries: 3
+  delay: 10
+
+- name: Install Docker Compose
+  win_chocolatey:
+    name: docker-compose
+    state: present
+  register: compose_install
+  retries: 3
+  delay: 10
+
+- name: Install Python 3.10+
+  win_chocolatey:
+    name: python
+    version: "3.10"
+    state: present
+  register: python_install
+
+- name: Install Git
+  win_chocolatey:
+    name: git
+    state: present
+  register: git_install
+
+- name: Install Visual Studio Build Tools (for C extensions)
+  win_chocolatey:
+    name: visualstudio2019buildtools
+    state: present
+  register: vs_build_install
+  retries: 3
+  delay: 30
+
+- name: Start Docker service
+  win_service:
+    name: docker
+    state: started
+    start_mode: auto
+  register: docker_service
+
+- name: Wait for Docker daemon to be ready
+  win_shell: docker ps
+  register: docker_ready
+  until: docker_ready.rc == 0
+  retries: 10
+  delay: 5
+
+- name: Verify installations
+  block:
+    - name: Check Docker version
+      win_shell: docker --version
+      register: docker_version
+
+    - name: Check Docker Compose version
+      win_shell: docker compose version
+      register: compose_version
+
+    - name: Check Python version
+      win_shell: python --version
+      register: python_version
+
+    - name: Check Git version
+      win_shell: git --version
+      register: git_version
+
+    - name: Display installed versions
+      debug:
+        msg: |
+          ✅ Installed Versions:
+          Docker: {{ docker_version.stdout }}
+          Docker Compose: {{ compose_version.stdout }}
+          Python: {{ python_version.stdout }}
+          Git: {{ git_version.stdout }}
+
+- name: Configure Docker for non-admin users (optional)
+  block:
+    - name: Add current user to docker-users group
+      win_group_membership:
+        name: docker-users
+        members:
+          - '{{ ansible_user }}'
+        state: present
+      register: docker_group_add
+
+    - name: Inform user to restart for group changes
+      debug:
+        msg: "⚠️  User group changed. Please restart your system for Docker to work without admin."
+      when: docker_group_add is changed
+
+- name: Create Fraud Detection project directory
+  win_file:
+    path: "{{ fraud_detection_home | default('C:\\fraud-detection') }}"
+    state: directory
+
+- name: Post-installation summary
+  debug:
+    msg: |
+      ✅ Windows Setup Complete!
+      
+      Next Steps:
+      1. Restart your system (if docker-users group was modified)
+      2. Clone the Fraud Detection repository:
+         git clone https://github.com/your-username/Fraud_Detection_System-main.git
+         cd Fraud_Detection_System-main
+      3. Run Docker setup:
+         docker compose up -d
+      4. Verify services:
+         docker compose ps
+      
+      Environment:
+      - Project Home: {{ fraud_detection_home | default('C:\\fraud-detection') }}
+      - Docker: Ready
+      - Python: Ready
+      - Git: Ready

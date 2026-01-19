@@ -1,0 +1,38 @@
+# Variables for Docker hosts
+# Applied only to machines in the docker_hosts group
+
+# Docker Installation
+docker_version: "24.0"
+docker_compose_version: "2.20"
+docker_repository: https://download.docker.com/linux
+
+# Container Settings
+docker_subnet: 172.20.0.0/16
+docker_network_name: fraud-detection-network
+
+# Docker Daemon Settings
+docker_daemon_options:
+  - "log-driver=json-file"
+  - "log-opt=max-size=10m"
+  - "log-opt=max-file=3"
+
+# Docker Compose Configuration
+docker_compose_file: "{{ project_root }}/docker-compose.yml"
+docker_compose_project_name: fraud-detection
+
+# Service Replicas (for scaling)
+ml_service_replicas: 1
+alert_service_replicas: 1
+web_ui_replicas: 1
+
+# Resource Limits
+container_memory_limit: "512m"
+container_cpu_limit: "1"
+
+# Volume Management
+volumes_path: "{{ project_root }}/volumes"
+backup_volume_path: "/backup/fraud-detection"
+
+# Log Configuration
+logs_path: "{{ project_root }}/logs"
+log_retention_days: 7

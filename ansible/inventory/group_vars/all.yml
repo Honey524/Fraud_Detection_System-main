@@ -1,0 +1,52 @@
+# Variables applicable to ALL hosts
+# Used across all playbooks and roles
+
+# Project Settings
+project_name: Fraud Detection System
+project_root: /opt/fraud-detection-system
+project_repo: https://github.com/yourusername/Fraud_Detection_System
+project_branch: main
+
+# Python Configuration
+python_version: "3.10"
+python_packages:
+  - python3-pip
+  - python3-dev
+  - python3-venv
+
+# System Settings
+timezone: UTC
+locale: en_US.UTF-8
+
+# Docker Settings
+docker_registry: docker.io
+docker_registry_username: your_username
+docker_registry_password: your_password
+
+# Application Ports
+app_ports:
+  ml_service: 5000
+  alert_service: 5001
+  web_ui: 8000
+  kafka: 9092
+  zookeeper: 2181
+  spark: 7077
+
+# Kubernetes Settings
+k8s_namespace: fraud-detection
+k8s_version: "1.31"
+
+# Monitoring Settings
+enable_monitoring: true
+monitoring_interval: 60  # seconds
+
+# Backup Settings
+enable_backups: true
+backup_schedule: "0 2 * * *"  # 2 AM daily
+backup_retention_days: 30
+
+# Notification Settings
+enable_notifications: true
+notify_email: alerts@fraud-detection.local
+notify_slack: false
+slack_webhook: ""

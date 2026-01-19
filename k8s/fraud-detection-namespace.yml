@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: fraud-detection
+  labels:
+    name: fraud-detection
+    environment: production
+  annotations:
+    description: "Namespace for Fraud Detection System microservices"
+    managed-by: "Ansible"

@@ -1,0 +1,53 @@
+# Variables for Kubernetes Master nodes
+# Applied only to K8s master nodes
+
+# Kubernetes Installation
+k8s_version: "1.31.0"
+kubeadm_version: "1.31.0"
+kubectl_version: "1.31.0"
+kubelet_version: "1.31.0"
+
+# Kubernetes Cluster
+cluster_name: fraud-detection-cluster
+k8s_namespace: fraud-detection
+pod_network_cidr: "10.244.0.0/16"
+service_cidr: "10.96.0.0/12"
+
+# API Server
+api_server_advertise_address: "0.0.0.0"
+api_server_port: 6443
+
+# RBAC (Role-Based Access Control)
+rbac_enabled: true
+
+# Network Plugin
+network_plugin: flannel
+cni_version: "0.4.0"
+
+# Etcd Settings
+etcd_data_dir: /var/lib/etcd
+etcd_backup_dir: /backup/etcd
+
+# TLS/Certificates
+tls_enabled: true
+cert_dir: /etc/kubernetes/pki
+cert_validity_days: 365
+
+# Resource Quotas
+default_resource_quota: true
+resource_limits:
+  requests:
+    memory: "64Mi"
+    cpu: "50m"
+  limits:
+    memory: "512Mi"
+    cpu: "500m"
+
+# Persistent Storage
+storage_class_name: local-storage
+persistent_volume_path: /mnt/kube-storage
+
+# Node Labels
+node_labels:
+  environment: "{{ environment }}"
+  app: "fraud-detection"

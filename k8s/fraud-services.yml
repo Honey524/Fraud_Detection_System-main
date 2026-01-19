@@ -1,0 +1,107 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fraud-ml-service
+  namespace: fraud-detection
+  labels:
+    app: fraud-ml-service
+    tier: ml
+spec:
+  type: ClusterIP
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 10800
+  selector:
+    app: fraud-ml-service
+  ports:
+    - name: http
+      port: 5000
+      targetPort: 5000
+      protocol: TCP
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fraud-alert-service
+  namespace: fraud-detection
+  labels:
+    app: fraud-alert-service
+    tier: alerts
+spec:
+  type: ClusterIP
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 10800
+  selector:
+    app: fraud-alert-service
+  ports:
+    - name: http
+      port: 5001
+      targetPort: 5001
+      protocol: TCP
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fraud-web-ui
+  namespace: fraud-detection
+  labels:
+    app: fraud-web-ui
+    tier: frontend
+spec:
+  type: NodePort
+  selector:
+    app: fraud-web-ui
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
+      nodePort: 30800
+      protocol: TCP
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fraud-producer
+  namespace: fraud-detection
+  labels:
+    app: fraud-producer
+    tier: producers
+spec:
+  type: ClusterIP
+  selector:
+    app: fraud-producer
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+      protocol: TCP
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fraud-spark
+  namespace: fraud-detection
+  labels:
+    app: fraud-spark
+    tier: processing
+spec:
+  type: ClusterIP
+  selector:
+    app: fraud-spark
+  ports:
+    - name: spark-master
+      port: 7077
+      targetPort: 7077
+      protocol: TCP
+    - name: spark-ui
+      port: 4040
+      targetPort: 4040
+      protocol: TCP

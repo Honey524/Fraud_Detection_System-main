@@ -1,0 +1,90 @@
+# Install Docker and Docker Compose
+# REASON: Docker is the foundation for containerized deployment
+# All services run in Docker containers for isolation and consistency
+
+---
+- name: Update package manager cache
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+  tags: docker-install
+
+- name: Install Docker dependencies
+  apt:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - apt-transport-https
+    - ca-certificates
+    - curl
+    - gnupg
+    - lsb-release
+  tags: docker-install
+
+- name: Add Docker GPG key
+  apt_key:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    state: present
+  tags: docker-install
+  when: ansible_os_family == "Debian"
+
+- name: Add Docker repository (Ubuntu/Debian)
+  apt_repository:
+    repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+    state: present
+  tags: docker-install
+  when: ansible_os_family == "Debian"
+
+- name: Install Docker
+  apt:
+    name: "docker-ce"
+    state: present
+  tags: docker-install
+  register: docker_installed
+
+- name: Install Docker Compose
+  apt:
+    name: "docker-compose-plugin"
+    state: present
+  tags: docker-install
+
+- name: Start Docker daemon
+  systemd:
+    name: docker
+    state: started
+    enabled: yes
+  tags: docker-install
+
+- name: Create docker group
+  group:
+    name: docker
+    state: present
+  tags: docker-install
+
+- name: Add user to docker group
+  user:
+    name: "{{ ansible_user }}"
+    groups: docker
+    append: yes
+  tags: docker-install
+  when: ansible_user != "root"
+
+- name: Verify Docker installation
+  command: docker --version
+  register: docker_version_check
+  tags: docker-install
+
+- name: Show Docker version
+  debug:
+    msg: "{{ docker_version_check.stdout }}"
+  tags: docker-install
+
+- name: Verify Docker Compose installation
+  command: docker compose version
+  register: compose_version_check
+  tags: docker-install
+
+- name: Show Docker Compose version
+  debug:
+    msg: "{{ compose_version_check.stdout }}"
+  tags: docker-install

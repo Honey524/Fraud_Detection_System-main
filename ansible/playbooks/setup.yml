@@ -1,0 +1,109 @@
+# Setup Playbook: Initial Server Configuration
+# REASON: Prepares server with all dependencies and configurations
+# This runs once per server to establish the baseline environment
+
+---
+- name: Initial Server Setup for Fraud Detection System
+  hosts: all
+  become: yes
+  
+  tasks:
+    - name: Gather system facts
+      setup:
+        gather_subset: all
+      tags: setup
+
+    - name: Display server information
+      debug:
+        msg: |
+          Server: {{ inventory_hostname }}
+          OS: {{ ansible_distribution }} {{ ansible_distribution_version }}
+          Kernel: {{ ansible_kernel }}
+          Python: {{ ansible_python_version }}
+          CPU Cores: {{ ansible_processor_vcpus }}
+          Memory: {{ ansible_memtotal_mb }}MB
+      tags: setup
+
+    - name: Update system packages
+      apt:
+        update_cache: yes
+        upgrade: dist
+      tags: setup
+      when: ansible_os_family == "Debian"
+
+    - name: Install essential packages
+      apt:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - build-essential
+        - curl
+        - wget
+        - git
+        - htop
+        - iotop
+        - net-tools
+        - dnsutils
+        - telnet
+        - vim
+        - nano
+        - tmux
+        - openssh-client
+        - openssh-server
+      tags: setup
+      when: ansible_os_family == "Debian"
+
+    - name: Set timezone
+      timezone:
+        name: "{{ timezone }}"
+      tags: setup
+
+    - name: Set hostname
+      hostname:
+        name: "{{ inventory_hostname }}"
+      tags: setup
+
+    - name: Configure locale
+      locale_gen:
+        name: "{{ locale }}"
+        state: present
+      tags: setup
+      when: ansible_os_family == "Debian"
+
+    - name: Create project directory
+      file:
+        path: "{{ project_root }}"
+        state: directory
+        mode: '0755'
+      tags: setup
+
+    - name: Create logs directory
+      file:
+        path: "{{ logs_path }}"
+        state: directory
+        mode: '0755'
+      tags: setup
+
+    - name: Create backup directory
+      file:
+        path: "{{ backup_volume_path }}"
+        state: directory
+        mode: '0755'
+      tags: setup
+
+    - name: Display completion message
+      debug:
+        msg: |
+          ╔═══════════════════════════════════════════════════════╗
+          ║   Server Setup Complete!                             ║
+          ╚═══════════════════════════════════════════════════════╝
+          
+          Next steps:
+          1. ansible-playbook playbooks/deploy-docker.yml
+             (to deploy with Docker Compose)
+          
+          OR
+          
+          2. ansible-playbook playbooks/deploy-k8s.yml
+             (to deploy with Kubernetes)
+      tags: setup

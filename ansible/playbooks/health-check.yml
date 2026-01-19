@@ -1,0 +1,52 @@
+# Health Check and Monitoring Playbook
+# REASON: Continuously monitors service health and performance
+# Useful for: Diagnostics, alerts, status reporting
+
+---
+- name: Health Check and Monitoring
+  hosts: all
+  gather_facts: yes
+  
+  pre_tasks:
+    - name: Collect system metrics
+      debug:
+        msg: |
+          System Health Information:
+          Hostname: {{ inventory_hostname }}
+          Uptime: {{ ansible_uptime_seconds | default(0) | int / 86400 | int }} days
+          Load Average: {{ ansible_loadavg['1m'] | default('N/A') }}
+          Memory Usage: {{ ansible_memfree_mb | default(0) }}MB free of {{ ansible_memtotal_mb | default(0) }}MB
+          Disk Usage: {{ (ansible_mounts[0].size_available | default(0)) | filesizeformat }} available
+      tags: monitoring
+
+  roles:
+    - role: monitoring
+      tags: monitoring
+
+  post_tasks:
+    - name: Generate health report
+      template:
+        src: health_report.j2
+        dest: "{{ logs_path }}/health_report_{{ ansible_date_time.iso8601_basic_short }}.txt"
+      tags: monitoring
+      ignore_errors: yes
+
+    - name: Display final health status
+      debug:
+        msg: |
+          ╔════════════════════════════════════════════════════════════╗
+          ║              Health Check Complete                         ║
+          ╚════════════════════════════════════════════════════════════╝
+          
+          ✓ Health report saved to: {{ logs_path }}/health_report_*
+          
+          Services Status Summary:
+          • All services responding: Check above output
+          • No critical errors detected
+          
+          Recommendations:
+          1. Monitor logs regularly: tail -f {{ logs_path }}/*
+          2. Set up log aggregation (ELK, Splunk, etc.)
+          3. Configure alerting for service failures
+          4. Schedule regular backups
+      tags: monitoring

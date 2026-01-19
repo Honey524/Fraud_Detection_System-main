@@ -1,0 +1,86 @@
+jenkins:
+  securityRealm:
+    saml:
+      binding: "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST"
+    local: {}
+  authorizationStrategy:
+    loggedInUsersCanDoAnything: {}
+
+  remotingSecurity:
+    enabled: true
+
+  crumbIssuer:
+    standard:
+      excludeClientIPFromCrumb: false
+
+unclassified:
+  location:
+    url: "http://localhost:8080/"
+  
+  gitHub:
+    apiRateLimitCheckerEnabled: true
+    clientCacheSize: 20
+    connectionTimeout: 20
+    readTimeout: 60
+
+  mailer:
+    charset: "UTF-8"
+    smtpHost: "smtp.gmail.com"
+    smtpPort: 587
+    useSMTPAuth: true
+    useTLS: true
+
+  timestamper:
+    allPipelines: true
+
+  ansiColorBuildWrapper:
+    colorMapName: "xterm"
+
+  docker:
+    dockerUrl: "unix:///var/run/docker.sock"
+    apiVersion: "1.24"
+    connectTimeout: 60
+    readTimeout: 60
+    cpuShares: 1024
+    memoryLimit: 4096
+    swapLimit: -1
+
+credentials:
+  system:
+    domainCredentials:
+      - credentials:
+          - $class: 'com.cloudbees.plugins.credentials.impl.UsernamePasswordCredentialsImpl'
+            id: 'docker-registry-creds'
+            description: 'Docker Registry Credentials'
+            username: '${DOCKER_USERNAME}'
+            password: '${DOCKER_PASSWORD}'
+          - $class: 'com.cloudbees.plugins.credentials.impl.UsernamePasswordCredentialsImpl'
+            id: 'github-credentials'
+            description: 'GitHub API Token'
+            username: '${GITHUB_USERNAME}'
+            password: '${GITHUB_TOKEN}'
+          - $class: 'com.cloudbees.plugins.credentials.impl.StringCredentialsImpl'
+            id: 'slack-webhook'
+            description: 'Slack Webhook URL'
+            secret: '${SLACK_WEBHOOK_URL}'
+
+jobs:
+  - script: >
+      pipelineJob('fraud-detection-ci-cd') {
+        description('Fraud Detection System CI/CD Pipeline')
+        definition {
+          cps {
+            script(readFileAsString('Jenkinsfile'))
+            sandbox(true)
+          }
+        }
+        triggers {
+          githubPush()
+        }
+        options {
+          buildDiscarder(logRotator(numToKeepStr: '20'))
+          timeout(time: 60, unit: 'MINUTES')
+          timestamps()
+          ansiColor('xterm')
+        }
+      }

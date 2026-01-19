@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual env
+venv/
+.env
+
+# Model artifacts (optional but recommended)
+ml_model/*.pkl
+
+# OS
+.DS_Store
+
+# Logs
+*.log
+
+# Jenkins runtime data (NEVER commit)
+jenkins_home/
+jenkins_home/**

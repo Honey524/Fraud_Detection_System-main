@@ -1,0 +1,90 @@
+# Deploy services to Kubernetes cluster
+# REASON: Kubernetes deployment provides production-grade orchestration:
+#         - Automatic pod restart on failure
+#         - Load balancing across pods
+#         - Rolling updates with zero downtime
+#         - Resource management and quotas
+
+---
+- name: Create Kubernetes namespace
+  kubernetes.core.k8s:
+    name: "{{ k8s_namespace }}"
+    api_version: v1
+    kind: Namespace
+    state: present
+  tags: k8s-deploy
+
+- name: Copy K8s manifests to remote
+  copy:
+    src: "{{ playbook_dir }}/../../k8s/"
+    dest: "/tmp/k8s_manifests/"
+    mode: '0644'
+  tags: k8s-deploy
+
+- name: Apply Kubernetes manifests
+  kubernetes.core.k8s:
+    state: present
+    namespace: "{{ k8s_namespace }}"
+    src: "/tmp/k8s_manifests/{{ item }}"
+  loop:
+    - fraud-producer.yml
+    - fraud-ml-service.yml
+    - fraud-alert-service.yml
+    - fraud-web-ui.yml
+    - fraud-spark.yml
+  tags: k8s-deploy
+  ignore_errors: yes
+
+- name: Wait for deployments to be ready
+  kubernetes.core.k8s_info:
+    kind: Deployment
+    namespace: "{{ k8s_namespace }}"
+    wait: yes
+    wait_condition:
+      type: Available
+      status: "True"
+    wait_sleep: 5
+    wait_timeout: 300
+  tags: k8s-deploy
+
+- name: Get pod status
+  kubernetes.core.k8s_info:
+    kind: Pod
+    namespace: "{{ k8s_namespace }}"
+  register: pod_status
+  tags: k8s-deploy
+
+- name: Show pod status
+  debug:
+    msg: |
+      Kubernetes Deployment Status:
+      {% for pod in pod_status.resources %}
+      - {{ pod.metadata.name }}: {{ pod.status.phase }}
+      {% endfor %}
+  tags: k8s-deploy
+
+- name: Get service information
+  kubernetes.core.k8s_info:
+    kind: Service
+    namespace: "{{ k8s_namespace }}"
+  register: service_status
+  tags: k8s-deploy
+
+- name: Show service access information
+  debug:
+    msg: |
+      Kubernetes Services:
+      {% for svc in service_status.resources %}
+      - {{ svc.metadata.name }}: {{ svc.spec.ports[0].port if svc.spec.ports else 'N/A' }}
+      {% endfor %}
+  tags: k8s-deploy
+
+- name: Check deployment status
+  command: kubectl get deployments -n {{ k8s_namespace }}
+  register: deployment_status
+  tags: k8s-deploy
+
+- name: Show deployment status
+  debug:
+    msg: "{{ deployment_status.stdout }}"
+  tags: k8s-deploy

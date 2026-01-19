@@ -1,0 +1,23 @@
+[
+  {
+    "alert_id": "ALERT_20260107_101816_918655",
+    "timestamp": "2026-01-07T10:18:16.918696",
+    "transaction_id": "TXN00000096",
+    "user_id": "U41412",
+    "merchant_id": "M9440",
+    "amount": 5616.9153700984525,
+    "fraud_probability": 1.0,
+    "risk_level": "HIGH",
+    "details": {
+      "transaction_type": "online",
+      "location": {
+        "latitude": 60.47642169219705,
+        "longitude": 47.46139638112774
+      },
+      "time": {
+        "hour": 19,
+        "day_of_week": 1
+      }
+    }
+  }
+]

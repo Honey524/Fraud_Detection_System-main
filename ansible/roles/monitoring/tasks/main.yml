@@ -1,0 +1,95 @@
+# Monitor service health and performance
+# REASON: Continuous monitoring ensures:
+#         - Early detection of service failures
+#         - Performance tracking
+#         - Alerting on issues
+#         - Historical data for troubleshooting
+
+---
+- name: Check Docker Compose services (if running)
+  command: docker compose -f "{{ docker_compose_file }}" ps
+  args:
+    chdir: "{{ project_root }}"
+  register: docker_status
+  ignore_errors: yes
+  tags: monitoring
+
+- name: Show Docker Compose status
+  debug:
+    msg: "{{ docker_status.stdout }}"
+  ignore_errors: yes
+  tags: monitoring
+
+- name: Check ML Service health
+  uri:
+    url: "http://localhost:{{ app_ports.ml_service }}/health"
+    method: GET
+  register: ml_service_health
+  ignore_errors: yes
+  tags: monitoring
+
+- name: Check Alert Service health
+  uri:
+    url: "http://localhost:{{ app_ports.alert_service }}/health"
+    method: GET
+  register: alert_service_health
+  ignore_errors: yes
+  tags: monitoring
+
+- name: Check Web UI health
+  uri:
+    url: "http://localhost:{{ app_ports.web_ui }}/"
+    method: GET
+  register: web_ui_health
+  ignore_errors: yes
+  tags: monitoring
+
+- name: Check Kubernetes cluster status (if K8s running)
+  command: kubectl cluster-info
+  register: k8s_cluster_info
+  ignore_errors: yes
+  tags: monitoring
+
+- name: Check K8s pod status
+  command: "kubectl get pods -n {{ k8s_namespace }}"
+  register: k8s_pods
+  ignore_errors: yes
+  tags: monitoring
+
+- name: Get service logs (Docker)
+  command: "docker logs --tail 50 {{ item }}"
+  loop:
+    - fraud-detection-system-ml_service-1
+    - fraud-detection-system-alert_service-1
+    - fraud-detection-system-web_ui-1
+  register: service_logs
+  ignore_errors: yes
+  tags: monitoring
+
+- name: Display monitoring report
+  debug:
+    msg: |
+      ╔═══════════════════════════════════════════════════════════╗
+      ║              FRAUD DETECTION SYSTEM HEALTH CHECK          ║
+      ╚═══════════════════════════════════════════════════════════╝
+      
+      Docker Services:
+      {% if docker_status.stdout %}
+      {{ docker_status.stdout }}
+      {% else %}
+      Docker Compose not active
+      {% endif %}
+      
+      ML Service: {{ ml_service_health.status | default('Offline') }}
+      Alert Service: {{ alert_service_health.status | default('Offline') }}
+      Web UI: {{ web_ui_health.status | default('Offline') }}
+      
+      Kubernetes Status:
+      {% if k8s_pods.stdout %}
+      {{ k8s_pods.stdout }}
+      {% else %}
+      Kubernetes cluster not active
+      {% endif %}
+      
+      Last Update: {{ ansible_date_time.iso8601 }}
+  tags: monitoring

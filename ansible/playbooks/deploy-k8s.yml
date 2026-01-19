@@ -1,0 +1,65 @@
+# Kubernetes Deployment Playbook
+# REASON: Deploys Fraud Detection System to Kubernetes cluster
+# Ideal for: Production, high-availability, auto-scaling scenarios
+
+---
+- name: Deploy Fraud Detection System to Kubernetes
+  hosts: k8s_masters
+  become: no
+  
+  pre_tasks:
+    - name: Check Kubernetes cluster status
+      command: kubectl cluster-info
+      register: cluster_info
+      ignore_errors: yes
+      tags: k8s-deploy
+      
+    - name: Verify kubectl connectivity
+      debug:
+        msg: "{{ cluster_info.stdout }}"
+      tags: k8s-deploy
+
+  roles:
+    - role: ../roles/k8s-install
+      tags: k8s-install
+      
+    - role: ../roles/k8s-deploy
+      tags: k8s-deploy
+
+  post_tasks:
+    - name: Wait for pods to stabilize
+      pause:
+        seconds: 15
+      tags: k8s-deploy
+
+    - name: Display Kubernetes deployment summary
+      debug:
+        msg: |
+          ╔════════════════════════════════════════════════════════════╗
+          ║       Kubernetes Deployment Complete!                      ║
+          ╚════════════════════════════════════════════════════════════╝
+          
+          Cluster: {{ cluster_name }}
+          Namespace: {{ k8s_namespace }}
+          
+          Port Forwarding (for local access):
+          
+          # ML Service
+          kubectl port-forward -n {{ k8s_namespace }} svc/ml-service {{ app_ports.ml_service }}:{{ app_ports.ml_service }}
+          
+          # Alert Service
+          kubectl port-forward -n {{ k8s_namespace }} svc/alert-service {{ app_ports.alert_service }}:{{ app_ports.alert_service }}
+          
+          # Web UI
+          kubectl port-forward -n {{ k8s_namespace }} svc/web-ui {{ app_ports.web_ui }}:{{ app_ports.web_ui }}
+          
+          Common Commands:
+          • View pods:         kubectl get pods -n {{ k8s_namespace }}
+          • View logs:         kubectl logs -n {{ k8s_namespace }} -f <pod-name>
+          • Describe pod:      kubectl describe pod -n {{ k8s_namespace }} <pod-name>
+          • Get events:        kubectl get events -n {{ k8s_namespace }}
+          • Delete deployment: kubectl delete deployment -n {{ k8s_namespace }} <deployment-name>
+          
+          Next: Run health checks with:
+          ansible-playbook playbooks/health-check.yml -e deployment_type=k8s
+      tags: k8s-deploy
