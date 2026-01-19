@@ -83,7 +83,9 @@ services:
       - ALERT_SERVICE_URL=http://alert_service:5001/alert
 
   jenkins:
-    image: jenkins/jenkins:lts
+    build:
+      context: .
+      dockerfile: Dockerfile.jenkins
     container_name: jenkins
     user: root
     ports:
@@ -95,7 +97,5 @@ services:
     volumes:
       - ./jenkins_home:/var/jenkins_home
       - /var/run/docker.sock:/var/run/docker.sock
-      - /usr/bin/docker:/usr/bin/docker
-      - /usr/lib/docker/cli-plugins:/usr/lib/docker/cli-plugins
-      - /etc/docker:/etc/docker:ro
     restart: unless-stopped
+
