@@ -1,8 +1,6 @@
 services:
   zookeeper:
     image: confluentinc/cp-zookeeper:7.4.0
-    ports:
-      - "2181:2181"
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
@@ -11,8 +9,6 @@ services:
     image: confluentinc/cp-kafka:7.4.0
     depends_on:
       - zookeeper
-    ports:
-      - "9092:9092"
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
@@ -37,8 +33,6 @@ services:
     build:
       context: .
       dockerfile: docker/ml_service.Dockerfile
-    ports:
-      - "5000:5000"
     depends_on:
       - kafka
     environment:
@@ -48,8 +42,6 @@ services:
     build:
       context: .
       dockerfile: docker/alert_service.Dockerfile
-    ports:
-      - "5001:5001"
     depends_on:
       - kafka
     environment:
@@ -60,7 +52,7 @@ services:
       context: .
       dockerfile: docker/web_ui.Dockerfile
     ports:
-      - "8000:8000"
+      - "8000:8000"   # ONLY expose UI
     depends_on:
       - ml_service
       - alert_service
