@@ -1,15 +1,35 @@
 pipeline {
   agent any
 
-  environment {
-    COMPOSE_FILE = 'docker-compose.yml'
-    HEALTH_TIMEOUT = '20'
-    // Set these via Jenkins job parameters or environment
-    REGISTRY = credentials('docker-registry-url') ?: 'docker.io/yourusername'
-    SHORT_SHA = "${env.GIT_COMMIT?.take(7) ?: 'local'}"
-    BUILD_TAG = "${env.BRANCH_NAME ?: 'main'}-${env.BUILD_NUMBER}"
+  /* =========================
+     BUILD PARAMETERS (UI)
+     ========================= */
+  parameters {
+    booleanParam(
+      name: 'PUSH_IMAGES',
+      defaultValue: false,
+      description: 'Push Docker images to registry'
+    )
+    string(
+      name: 'REGISTRY',
+      defaultValue: 'docker.io/honey254',
+      description: 'Docker registry (e.g. docker.io/honey254)'
+    )
   }
 
+  /* =========================
+     ENVIRONMENT VARIABLES
+     ========================= */
+  environment {
+    COMPOSE_FILE   = 'docker-compose.yml'
+    HEALTH_TIMEOUT = '20'
+    SHORT_SHA      = "${env.GIT_COMMIT?.take(7) ?: 'local'}"
+    BUILD_TAG      = "${env.BRANCH_NAME ?: 'main'}-${env.BUILD_NUMBER}"
+  }
+
+  /* =========================
+     PIPELINE OPTIONS
+     ========================= */
   options {
     timestamps()
     ansiColor('xterm')
@@ -17,7 +37,11 @@ pipeline {
     timeout(time: 60, unit: 'MINUTES')
   }
 
+  /* =========================
+     STAGES
+     ========================= */
   stages {
+
     stage('Checkout') {
       steps {
         checkout scm
@@ -31,7 +55,7 @@ pipeline {
         sh '''
           python3 -m venv .venv
           . .venv/bin/activate
-          pip install --quiet -r requirements.txt pytest 2>&1 | grep -v "already satisfied" || true
+          pip install -r requirements.txt pytest || true
           pytest -v --tb=short || true
         '''
       }
@@ -41,21 +65,20 @@ pipeline {
       steps {
         sh '''
           . .venv/bin/activate || true
-          echo "=== Flake8 Lint ===" 
-          pip install --quiet flake8 2>&1 | grep -v "already satisfied" || true
-          flake8 . --count --show-source --statistics || true
-          
-          echo "=== Black Format Check ===" 
-          pip install --quiet black 2>&1 | grep -v "already satisfied" || true
+
+          pip install flake8 black bandit pip-audit || true
+
+          echo "=== Flake8 ==="
+          flake8 . || true
+
+          echo "=== Black ==="
           black --check . || true
-          
-          echo "=== Bandit Security ===" 
-          pip install --quiet bandit 2>&1 | grep -v "already satisfied" || true
+
+          echo "=== Bandit ==="
           bandit -r . -q || true
-          
-          echo "=== Dependency Audit ===" 
-          pip install --quiet pip-audit 2>&1 | grep -v "already satisfied" || true
-          pip-audit -r requirements.txt || echo "⚠ Some vulnerabilities detected; review recommended."
+
+          echo "=== Dependency Audit ==="
+          pip-audit -r requirements.txt || true
         '''
       }
     }
@@ -63,9 +86,8 @@ pipeline {
     stage('Build Images') {
       steps {
         sh '''
-          echo "Building Docker images..."
           docker compose build
-          docker images | grep -E "fraud_detection_system|jenkins"
+          docker images
         '''
       }
     }
@@ -73,7 +95,6 @@ pipeline {
     stage('Start Services') {
       steps {
         sh '''
-          echo "Starting services..."
           docker compose up -d
           docker compose ps
         '''
@@ -83,90 +104,77 @@ pipeline {
     stage('Health Checks') {
       steps {
         sh '''
-          echo "Waiting for services to stabilize..."
           sleep 10
-          
-          echo "=== ML Service Health ===" 
-          curl -fsS http://localhost:5000/health || echo "⚠ ML Service not ready"
-          
-          echo "=== Alert Service Health ===" 
-          curl -fsS http://localhost:5001/health || echo "⚠ Alert Service not ready"
-          
-          echo "=== Web UI Health ===" 
-          curl -fsS http://localhost:8000 | head -n 3 || echo "⚠ Web UI not ready"
+
+          curl -fsS http://localhost:5000/health || echo "ML service not ready"
+          curl -fsS http://localhost:5001/health || echo "Alert service not ready"
+          curl -fsS http://localhost:8000 || echo "Web UI not ready"
         '''
       }
     }
 
     stage('Push to Registry') {
-      when { 
+      when {
         allOf {
           branch 'main'
-          expression { return params.PUSH_IMAGES == true }
+          expression { params.PUSH_IMAGES == true }
         }
       }
       steps {
-        withCredentials([usernamePassword(credentialsId: 'docker-registry-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_TOKEN')]) {
+        withCredentials([
+          usernamePassword(
+            credentialsId: 'docker-registry-creds',
+            usernameVariable: 'DOCKER_USER',
+            passwordVariable: 'DOCKER_TOKEN'
+          )
+        ]) {
           sh '''
-            echo "Logging in to Docker registry..."
             echo "$DOCKER_TOKEN" | docker login -u "$DOCKER_USER" --password-stdin
-            
-            echo "Tagging and pushing images..."
-            IMAGES=$(docker images --format "{{.Repository}}:{{.Tag}}" | grep "fraud_detection_system-main-")
-            
+
+            IMAGES=$(docker images --format "{{.Repository}}:{{.Tag}}" | grep fraud)
+
             for IMG in $IMAGES; do
-              NAME=$(echo "$IMG" | awk -F':' '{print $1}' | sed 's|.*/||')
-              echo "Pushing $NAME with tags: $BUILD_TAG, $SHORT_SHA"
+              NAME=$(echo "$IMG" | awk -F':' '{print $1}')
               docker tag "$IMG" "$REGISTRY/$NAME:$BUILD_TAG"
               docker tag "$IMG" "$REGISTRY/$NAME:$SHORT_SHA"
-              docker push "$REGISTRY/$NAME:$BUILD_TAG" || echo "⚠ Failed to push $NAME:$BUILD_TAG"
-              docker push "$REGISTRY/$NAME:$SHORT_SHA" || echo "⚠ Failed to push $NAME:$SHORT_SHA"
+
+              docker push "$REGISTRY/$NAME:$BUILD_TAG"
+              docker push "$REGISTRY/$NAME:$SHORT_SHA"
             done
-            
+
             docker logout
           '''
         }
       }
     }
 
-    stage('Deploy (Ansible/Docker)') {
+    stage('Deploy (Ansible)') {
       when { branch 'main' }
       steps {
         sh '''
-          echo "=== Running Ansible Deployment ===" 
           cd ansible
-          ansible-playbook playbooks/health-check.yml -i inventory/hosts.ini -K || echo "⚠ Health check incomplete (expected for first run)"
-          cd ..
+          ansible-playbook playbooks/health-check.yml -i inventory/hosts.ini -K || true
         '''
       }
     }
-
   }
 
+  /* =========================
+     POST ACTIONS
+     ========================= */
   post {
     always {
       sh '''
-        echo "=== Final Service Status ===" 
         docker compose ps || true
-        
-        echo "=== Recent Logs (Last 200 lines) ===" 
-        docker compose logs --no-color --tail=200 || true
+        docker compose logs --tail=200 || true
       '''
-      archiveArtifacts artifacts: 'ansible/ansible.log', onlyIfSuccessful: false, allowEmptyArchive: true
       cleanWs()
     }
-    failure {
-      sh '''
-        echo "=== Build FAILED - Dumping Full Logs ===" 
-        docker compose logs --no-color || true
-      '''
-    }
     success {
-      echo '✓ Pipeline succeeded! Services running and healthy.'
+      echo '✅ Pipeline completed successfully'
+    }
+    failure {
+      echo '❌ Pipeline failed — check logs above'
     }
   }
 }
-
-// Optional: Define build parameters in Jenkins UI manually
-// Type: Boolean Parameter, Name: PUSH_IMAGES, Default: false
-// Type: String Parameter, Name: REGISTRY, Default: docker.io/yourusername
