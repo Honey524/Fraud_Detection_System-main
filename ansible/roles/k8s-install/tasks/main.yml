@@ -1,88 +1,78 @@
-# Install Kubernetes tools (kubectl, kubeadm, kubelet)
-# REASON: Kubernetes provides advanced container orchestration with:
-#         - Automatic scaling
-#         - Self-healing
-#         - Rolling updates
-#         - Built-in monitoring and logging
-
 ---
+# Install Kubernetes tools (kubectl, kubeadm, kubelet)
+# CI/CD + Ubuntu 22.04+ compliant
+
 - name: Update package manager
   apt:
     update_cache: yes
     cache_valid_time: 3600
+  become: true
   tags: k8s-install
 
 - name: Install Kubernetes dependencies
   apt:
-    name: "{{ item }}"
+    name:
+      - apt-transport-https
+      - curl
+      - gnupg
     state: present
-  loop:
-    - apt-transport-https
-    - curl
-    - gnupg
+  become: true
   tags: k8s-install
 
-- name: Download Kubernetes GPG key
-  apt_key:
-    url: https://pkgs.k8s.io/core:/stable:/v1.31/deb/Release.key
-    keyring: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
-    state: present
-  tags: k8s-install
-  when: ansible_os_family == "Debian"
-
-- name: Add Kubernetes repository
-  apt_repository:
-    repo: "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.31/deb/ /"
-    state: present
-  tags: k8s-install
-  when: ansible_os_family == "Debian"
-
-- name: Install kubectl
-  apt:
-    name: "kubectl={{ kubeadm_version }}-*"
-    state: present
-  tags: k8s-install
-
-- name: Install kubeadm
-  apt:
-    name: "kubeadm={{ kubeadm_version }}-*"
-    state: present
-  tags: k8s-install
-
-- name: Install kubelet
-  apt:
-    name: "kubelet={{ kubelet_version }}-*"
-    state: present
-  tags: k8s-install
-
-- name: Install minikube (for local development)
-  command: |
-    curl -LO https://github.com/kubernetes/minikube/releases/download/v{{ k8s_version }}/minikube-linux-amd64
-    install minikube-linux-amd64 /usr/local/bin/minikube
-  args:
-    creates: /usr/local/bin/minikube
-  tags: k8s-install
-  when: inventory_hostname == "localhost"
-
-- name: Verify kubectl installation
-  command: kubectl version --client
-  register: kubectl_version_check
-  tags: k8s-install
-
-- name: Show kubectl version
-  debug:
-    msg: "{{ kubectl_version_check.stdout }}"
-  tags: k8s-install
-
-- name: Create .kube directory
+# ✅ REQUIRED for modern apt key handling
+- name: Ensure apt keyrings directory exists
   file:
-    path: "{{ ansible_user_dir }}/.kube"
+    path: /etc/apt/keyrings
     state: directory
     mode: '0755'
+  become: true
   tags: k8s-install
 
-- name: Set kubectl context (if kubeconfig exists)
-  command: kubectl config view
-  register: kubectl_config
-  ignore_errors: yes
+# ✅ MODERN replacement for apt-key
+- name: Download and dearmor Kubernetes GPG key
+  shell: |
+    curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.31/deb/Release.key \
+    | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+  args:
+    creates: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+  become: true
+  tags: k8s-install
+
+- name: Remove any old Kubernetes apt repositories
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /etc/apt/sources.list.d/kubernetes.list
+    - /etc/apt/sources.list.d/kubernetes-apt.list
+  become: true
+  tags: k8s-install
+
+
+- name: Add Kubernetes apt repository
+  apt_repository:
+    repo: >
+      deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg]
+      https://pkgs.k8s.io/core:/stable:/v1.31/deb/ /
+    state: present
+    filename: kubernetes
+  become: true
+  tags: k8s-install
+
+
+
+- name: Install Kubernetes components
+  apt:
+    name:
+      - kubelet
+      - kubeadm
+      - kubectl
+    state: present
+    update_cache: yes
+  become: true
+  tags: k8s-install
+
+- name: Hold Kubernetes packages
+  command: apt-mark hold kubelet kubeadm kubectl
+  become: true
   tags: k8s-install

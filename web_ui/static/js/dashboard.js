@@ -34,7 +34,7 @@ document.addEventListener('DOMContentLoaded', function() {
 // Check Service Health
 async function checkServices() {
     try {
-        const mlResponse = await fetch('http://localhost:5000/health');
+        const mlResponse = await fetch('http://localhost:5002/health');
         const mlStatus = document.getElementById('ml-status');
         if (mlResponse.ok) {
             mlStatus.className = 'badge bg-success me-2';
@@ -85,7 +85,7 @@ async function testTransaction(event) {
     };
     
     try {
-        const response = await fetch('http://localhost:5000/predict', {
+        const response = await fetch('http://localhost:5002/predict', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'

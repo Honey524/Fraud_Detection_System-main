@@ -70,6 +70,7 @@
   register: build_result
   async: 3600
   poll: 10
+  when: not (skip_build | default(false))
 
 - name: Pull latest images
   command: docker compose -f "{{ docker_compose_file }}" pull

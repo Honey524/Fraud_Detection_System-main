@@ -14,8 +14,8 @@ spec:
     spec:
       containers:
       - name: fraud-alert-service
-        image: fraud-alert-service:latest
-        imagePullPolicy: Never
+        image: honey254/fraud-alert-service:1.0.0
+        imagePullPolicy: IfNotPresent
         resources:
           requests:
             cpu: 100m

@@ -14,8 +14,8 @@ spec:
     spec:
       containers:
       - name: fraud-ml-service
-        image: fraud-ml-service:latest
-        imagePullPolicy: Never
+        image: honey254/fraud-ml-service:1.0.0
+        imagePullPolicy: IfNotPresent
         resources:
           requests:
             cpu: 200m

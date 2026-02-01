@@ -1,0 +1,21 @@
+---
+- name: Run only health-check role
+  hosts: localhost
+  connection: local
+  gather_facts: true
+
+  vars:
+    health_endpoints:
+      - name: ml
+        service: fraud-ml-service
+        local_port: 15000
+        remote_port: 5000
+        path: /health
+      - name: alert
+        service: fraud-alert-service
+        local_port: 15001
+        remote_port: 5001
+        path: /health
+
+  tasks:
+    - include_tasks: roles/health-check/tasks/clean_main.yml

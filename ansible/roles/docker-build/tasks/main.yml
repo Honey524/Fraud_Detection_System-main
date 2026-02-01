@@ -1,0 +1,15 @@
+- name: DEBUG docker_images content
+  debug:
+    var: docker_images
+
+
+- name: Build Docker images
+  community.docker.docker_image:
+    name: "{{ item.image }}"
+    tag: "{{ item.tag | default('latest') }}"
+    source: build
+    build:
+      path: "{{ item.build_path }}"
+      dockerfile: "{{ item.dockerfile }}"
+  loop: "{{ docker_images }}"
+  tags: docker-build

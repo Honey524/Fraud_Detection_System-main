@@ -14,8 +14,27 @@ spec:
     spec:
       containers:
       - name: fraud-spark
-        image: fraud-spark:latest
-        imagePullPolicy: Never
+        image: honey254/fraud-spark:1.0.0
+        imagePullPolicy: IfNotPresent
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fraud-spark
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: fraud-spark
+  template:
+    metadata:
+      labels:
+        app: fraud-spark
+    spec:
+      containers:
+      - name: fraud-spark
+        image: honey254/fraud-spark:1.0.0
+        imagePullPolicy: IfNotPresent
         env:
         - name: KAFKA_BROKER
-          value: "192.168.49.1:9092"
+          value: "kafka:9092"
+

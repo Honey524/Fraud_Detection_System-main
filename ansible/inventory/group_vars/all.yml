@@ -25,7 +25,7 @@ docker_registry_password: your_password
 
 # Application Ports
 app_ports:
-  ml_service: 5000
+  ml_service: 5002
   alert_service: 5001
   web_ui: 8000
   kafka: 9092
@@ -50,3 +50,31 @@ enable_notifications: true
 notify_email: alerts@fraud-detection.local
 notify_slack: false
 slack_webhook: ""
+
+# Docker Images to Build
+docker_images:
+  - name: fraud-ml-service
+    image: honey254/fraud-ml-service
+    build_path: ../ml_service
+    dockerfile: docker/ml_service.Dockerfile
+
+  - name: fraud-alert-service
+    image: honey254/fraud-alert-service
+    build_path: ../alert_service
+    dockerfile: docker/alert_service.Dockerfile
+
+  - name: fraud-producer
+    image: honey254/fraud-producer
+    build_path: ../producer
+    dockerfile: docker/producer.Dockerfile
+
+  - name: fraud-web-ui
+    image: honey254/fraud-web-ui
+    build_path: ../web_ui
+    dockerfile: docker/web_ui.Dockerfile
+
+  - name: fraud-spark
+    image: honey254/fraud-spark
+    build_path: ../spark_processing
+    dockerfile: docker/spark.Dockerfile
+

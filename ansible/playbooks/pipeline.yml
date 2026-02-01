@@ -1,0 +1,58 @@
+---
+- name: CI/CD Pipeline
+  hosts: localhost
+  connection: local
+  gather_facts: true
+
+  vars:
+    project_root: "{{ playbook_dir | realpath }}/../.."
+
+    deploy_target: k8s
+
+    docker_registry: "{{ lookup('env','DOCKER_REGISTRY') | default('', true) }}"
+    docker_username: "{{ lookup('env','DOCKER_USERNAME') | default('your_docker_username', true) }}"
+
+    docker_images:
+      - name: fraud-ml-service
+        image: "{{ docker_username }}/fraud-ml-service"
+        build_path: "{{ project_root }}"
+        dockerfile: docker/ml_service.Dockerfile
+
+      - name: fraud-alert-service
+        image: "{{ docker_username }}/fraud-alert-service"
+        build_path: "{{ project_root }}"
+        dockerfile: docker/alert_service.Dockerfile
+
+      - name: fraud-producer
+        image: "{{ docker_username }}/fraud-producer"
+        build_path: "{{ project_root }}"
+        dockerfile: docker/producer.Dockerfile
+
+      - name: fraud-web-ui
+        image: "{{ docker_username }}/fraud-web-ui"
+        build_path: "{{ project_root }}"
+        dockerfile: docker/web_ui.Dockerfile
+
+      - name: fraud-spark
+        image: "{{ docker_username }}/fraud-spark"
+        build_path: "{{ project_root }}"
+        dockerfile: docker/spark.Dockerfile
+
+    health_endpoints:
+      - name: ml
+        service: fraud-ml-service
+        local_port: 15000
+        remote_port: 5000
+        path: /health
+
+  roles:
+    - docker-build
+    - docker-push
+
+  tasks:
+    - include_role:
+        name: k8s-deploy
+      when: deploy_target == 'k8s'
+
+    - include_role:
+        name: health-check

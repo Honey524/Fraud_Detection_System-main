@@ -181,6 +181,6 @@ if __name__ == '__main__':
     else:
         print("❌ Failed to load ML model")
         print("   Check logs above for details")
-    print("✓ Service starting on http://localhost:5000")
+    print("✓ Service listening on container port 5000 (mapped to host 5002)")
     print("=" * 60)
     app.run(host='0.0.0.0', port=5000, debug=False)

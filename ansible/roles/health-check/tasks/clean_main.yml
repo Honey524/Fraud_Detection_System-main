@@ -1,0 +1,41 @@
+- name: Port-forward service for health check
+  shell: |
+    kubectl port-forward svc/{{ item.service }} {{ item.local_port }}:{{ item.remote_port }} -n fraud-detection &
+  loop: "{{ health_endpoints }}"
+  async: 30
+  poll: 0
+
+- name: Wait for port-forward to initialize
+  pause:
+    seconds: 7
+
+- name: Wait for local port to be open
+  wait_for:
+    host: 127.0.0.1
+    port: "{{ item.local_port }}"
+    timeout: 30
+  loop: "{{ health_endpoints }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Check health endpoint
+  uri:
+    url: "http://localhost:{{ item.local_port }}{{ item.path }}"
+    method: GET
+    status_code: 200
+  register: health_result
+  retries: 10
+  delay: 5
+  until: health_result.status == 200
+  loop: "{{ health_endpoints }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Cleanup port-forwards (idempotent)
+  shell: |
+    pids=$(pgrep -f "kubectl port-forward" || true)
+    if [ -n "$pids" ]; then
+      pkill -f "kubectl port-forward" || true
+    fi
+  changed_when: false
+  failed_when: false

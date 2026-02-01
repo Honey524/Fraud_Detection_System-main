@@ -14,8 +14,8 @@ spec:
     spec:
       containers:
       - name: fraud-producer
-        image: fraud-producer:latest
-        imagePullPolicy: Never
+        image: honey254/fraud-producer:1.0.0
+        imagePullPolicy: IfNotPresent
         env:
         - name: KAFKA_BROKER
-          value: "192.168.49.1:9092"
+          value: "kafka.default.svc.cluster.local:9092"

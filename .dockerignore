@@ -1,3 +1,11 @@
+jenkins_home
+.git
+.env
+*.pyc
+__pycache__/
+venv/
+.vscode/
+.idea/
 # Python cache
 __pycache__
 *.py[cod]

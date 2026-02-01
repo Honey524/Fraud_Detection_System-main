@@ -1,0 +1,27 @@
+---
+# Push Docker images to registry if `docker_registry` is set
+- name: Check registry configuration
+  ansible.builtin.set_fact:
+    _push_registry: "{{ (docker_registry | length) > 0 }}"
+
+- name: Tag and push images when registry is configured
+  when: _push_registry
+  block:
+    - name: Tag image with registry prefix
+      ansible.builtin.shell: |
+        docker tag {{ item.name }}:{{ item.tag | default('latest') }} {{ docker_registry }}/{{ item.name }}:{{ item.tag | default('latest') }}
+      loop: "{{ docker_images }}"
+      loop_control:
+        label: "{{ item.name }}"
+
+    - name: Push image to registry
+      ansible.builtin.shell: |
+        docker push {{ docker_registry }}/{{ item.name }}:{{ item.tag | default('latest') }}
+      loop: "{{ docker_images }}"
+      loop_control:
+        label: "{{ item.name }}"
+
+- name: Skip push when no registry configured
+  when: not _push_registry
+  ansible.builtin.debug:
+    msg: "docker_registry not set; skipping push. Set docker_registry in vars to push images."

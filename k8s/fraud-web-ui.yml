@@ -14,8 +14,8 @@ spec:
     spec:
       containers:
       - name: fraud-web-ui
-        image: fraud-web-ui:latest
-        imagePullPolicy: Never
+        image: honey254/fraud-web-ui:1.0.0
+        imagePullPolicy: IfNotPresent
         resources:
           requests:
             cpu: 100m

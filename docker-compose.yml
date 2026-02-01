@@ -37,6 +37,8 @@ services:
       - kafka
     environment:
       - KAFKA_BROKER=kafka:29092
+    ports:
+      - "5002:5000"
 
   alert_service:
     build:
@@ -46,6 +48,8 @@ services:
       - kafka
     environment:
       - KAFKA_BROKER=kafka:29092
+    ports:
+      - "5001:5001"
 
   web_ui:
     build:
@@ -65,5 +69,5 @@ services:
       - kafka
     environment:
       - KAFKA_BROKER=kafka:29092
-      - ML_SERVICE_URL=http://ml_service:5000/predict
+      - ML_SERVICE_URL=http://ml_service:5002/predict
       - ALERT_SERVICE_URL=http://alert_service:5001/alert

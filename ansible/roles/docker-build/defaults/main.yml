@@ -1,0 +1,25 @@
+docker_images:
+  - name: ml_service
+    dockerfile: docker/ml_service.Dockerfile
+    context: "{{ project_root }}"
+    tag: latest
+
+  - name: alert_service
+    dockerfile: docker/alert_service.Dockerfile
+    context: "{{ project_root }}"
+    tag: latest
+
+  - name: producer
+    dockerfile: docker/producer.Dockerfile
+    context: "{{ project_root }}"
+    tag: latest
+
+  - name: web_ui
+    dockerfile: docker/web_ui.Dockerfile
+    context: "{{ project_root }}"
+    tag: latest
+
+  - name: spark
+    dockerfile: docker/spark.Dockerfile
+    context: "{{ project_root }}"
+    tag: latest

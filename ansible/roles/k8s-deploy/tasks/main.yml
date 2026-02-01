@@ -8,17 +8,16 @@
 ---
 - name: Create Kubernetes namespace
   kubernetes.core.k8s:
-    name: "{{ k8s_namespace }}"
     api_version: v1
     kind: Namespace
-    state: present
-  tags: k8s-deploy
+    name: "{{ k8s_namespace }}"
+
 
 - name: Copy K8s manifests to remote
   copy:
     src: "{{ playbook_dir }}/../../k8s/"
     dest: "/tmp/k8s_manifests/"
-    mode: '0644'
+    mode: preserve
   tags: k8s-deploy
 
 - name: Apply Kubernetes manifests
@@ -27,13 +26,24 @@
     namespace: "{{ k8s_namespace }}"
     src: "/tmp/k8s_manifests/{{ item }}"
   loop:
+    # Core infra
+    - kafka-zookeeper.yml
+
+    # Application deployments
     - fraud-producer.yml
     - fraud-ml-service.yml
     - fraud-alert-service.yml
     - fraud-web-ui.yml
     - fraud-spark.yml
+
+    # Services & networking
+    - fraud-services.yml
+    - fraud-services-default.yml
+    - fraud-ingress.yml
+    - fraud-hpa.yml
   tags: k8s-deploy
-  ignore_errors: yes
+
+
 
 - name: Wait for deployments to be ready
   kubernetes.core.k8s_info:
@@ -53,6 +63,7 @@
     namespace: "{{ k8s_namespace }}"
   register: pod_status
   tags: k8s-deploy
+
 
 - name: Show pod status
   debug:
@@ -79,12 +90,22 @@
       {% endfor %}
   tags: k8s-deploy
 
-- name: Check deployment status
-  command: kubectl get deployments -n {{ k8s_namespace }}
+- name: Get deployment status
+  kubernetes.core.k8s_info:
+    kind: Deployment
+    namespace: "{{ k8s_namespace }}"
   register: deployment_status
   tags: k8s-deploy
 
 - name: Show deployment status
   debug:
-    msg: "{{ deployment_status.stdout }}"
+    msg: |
+      Kubernetes Deployments:
+      {% for deploy in deployment_status.resources %}
+      - {{ deploy.metadata.name }}:
+          replicas: {{ deploy.status.replicas | default(0) }},
+          available: {{ deploy.status.availableReplicas | default(0) }}
+      {% endfor %}
   tags: k8s-deploy
+
+
